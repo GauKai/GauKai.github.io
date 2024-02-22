@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>天氣卡</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="./css/index.css">
+</head>
+
+<body>
+    <div class="nav">
+        <div class="nav-btn" tabindex="0">全臺</div>
+        <div class="nav-btn" tabindex="0">北部</div>
+        <div class="nav-btn" tabindex="0">中部</div>
+        <div class="nav-btn" tabindex="0">南部</div>
+        <div class="nav-btn" tabindex="0">東部</div>
+        <div class="nav-btn" tabindex="0">離島</div>
+    </div>
+    <div class="nav-list">
+    </div>
+    <div class="region-card"></div>
+    <script>
+        let cities = [
+            ['基隆市', '新北市', '臺北市', '桃園市', '新竹市', '新竹縣', '苗栗縣', '臺中市', '南投縣', '彰化縣', '雲林縣', '嘉義市', '嘉義縣', '臺南市', '高雄市', '屏東縣', '宜蘭縣', '花蓮縣', '臺東縣', '澎湖縣', '金門縣', '連江縣'],
+            ['基隆市', '新北市', '臺北市', '桃園市', '新竹市', '新竹縣', '苗栗縣'],
+            ['臺中市', '南投縣', '彰化縣', '雲林縣', '嘉義市', '嘉義縣'],
+            ['臺南市', '高雄市', '屏東縣'],
+            ['宜蘭縣', '花蓮縣', '臺東縣'],
+            ['澎湖縣', '金門縣', '連江縣'],
+        ];
+
+        let nowCities = cities[0];
+        let orgData = {};
+
+        let url = 'https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001?Authorization=CWA-A15002FD-D275-4CE2-A433-62B4701933D1';
+        fetch(url)
+            .then(function (response) {
+                return response.json();
+            })
+            .then(function (myJson) {
+                console.log(myJson);
+                // 1. 組織資料
+                organizationData(myJson);
+                // 2. 處理城市
+                arrangeCites();
+            });
+
+        // fetch("./data/data-0129.json")
+        //     .then(response => response.json())
+        //     .then(data => {
+        //         organizationData(data);
+        //         arrangeCites();
+        //     });
+
+        function organizationData(data) {
+            let locationAll = data.records.location;
+            locationAll.forEach(location => {
+                let locationName = location.locationName;
+                let loc_wE_t0 = location.weatherElement[0].time[0];
+                let wxCondition = loc_wE_t0.parameter.parameterName;
+                let startTime = loc_wE_t0.startTime;
+                let endTime = loc_wE_t0.endTime;
+                let pop = location.weatherElement[1].time[0].parameter.parameterName;
+                let minT = location.weatherElement[2].time[0].parameter.parameterName;
+                let ci = location.weatherElement[3].time[0].parameter.parameterName;
+                let maxT = location.weatherElement[4].time[0].parameter.parameterName;
+                // 非常好且特別的方法 by 老師自詡 確實厲害
+                orgData[locationName] = {
+                    wxCondition: wxCondition,
+                    startTime: startTime,
+                    endTime: endTime,
+                    minT: minT,
+                    maxT: maxT,
+                    pop: pop,
+                    ci: ci,
+                }
+            });
+        }
+
+        // 舒適度指數分為六等級，指數10以下為非常寒冷，指數 11-15為寒冷，指數16至19為稍有寒意，指數 20至26為舒適，指數27至30為悶熱，指數31以上為易中暑。
+        // https://www.cwa.gov.tw/V8/C/K/Weather_Icon.html
+
+        function arrangeCites() {
+            let cardRegion = document.querySelector('.region-card');
+            let type = document.querySelectorAll('.nav-btn');
+            let navList = document.querySelector('.nav-list');
+
+            let date = orgData['基隆市'].startTime.split(' ')[0].slice(5).replace('-', '/');
+            let startTime = orgData['基隆市'].startTime.split(' ')[1].slice(0, 5);
+            let endTime = orgData['基隆市'].endTime.split(' ')[1].slice(0, 5);
+            let cardStyle = '';
+
+            createNavList(date, startTime, endTime, 0, navList, '');
+            createDiv(date, startTime, endTime, 0, cardRegion, '');
+
+            type.forEach((item, index) => {
+                item.addEventListener('click', () => {
+                    let width = window.innerWidth;
+
+                    if (width <= 540) {
+                        navList.innerHTML = '';
+                        navList.style.gridTemplateColumns = '20% 20% 20% 20% 20%';
+                        createNavList(date, startTime, endTime, index, navList, '');
+                    } else {
+                        cardRegion.innerHTML = '';
+                        createDiv(date, startTime, endTime, index, cardRegion, '');
+                    }
+                });
+            });
+        }
+
+        function createDiv(date, startTime, endTime, index, region, data) {
+            cities[index].forEach(item1 => {
+                if (data === '' || data === item1) {
+                    if (data === item1) {
+                        region.innerHTML = '';
+                    }
+
+                    let min = orgData[item1].minT;
+                    let max = orgData[item1].maxT;
+                    let style = color(min, 0);
+
+                    region.innerHTML += `<div class="card" style="${style}">
+                                            <div class="card-title">
+                                                <div class="card-title-L">
+                                                    <div class="card-title-L-location">${item1}</div>
+                                                    <div class="card-title-L-date">${date}</div>
+                                                </div>
+                                                <div class="card-title-img" style="background-image: url(./img/${orgData[item1].wxCondition}.svg);"></div>
+                                            </div>
+                                            <div class="card-more card-time">${startTime} ~ ${endTime}</div>
+                                            <div class="card-more">${min}°C ~ ${max}°C</div>
+                                            <div class="card-more">降雨機率: ${orgData[item1].pop}%</div>
+                                            <div class="card-more card-Wx">${orgData[item1].wxCondition}</div>
+                                            <div class="card-more card-CI">${orgData[item1].ci}</div>
+                                         </div>`;
+                }
+            });
+        }
+
+        function createNavList(date, startTime, endTime, index, region, data) {
+
+            region.innerHTML += `<div class="nav-list-node-top">${date}</div>`;
+            region.innerHTML += `<div class="nav-list-node-top">${startTime} ~ ${endTime}</div>`;
+
+            cities[index].forEach(item1 => {
+                let min = orgData[item1].minT;
+                let max = orgData[item1].maxT;
+                let pop = orgData[item1].pop;
+                let temperature = color(min, 1);
+                let umbrella = color(pop, 2);
+
+                region.innerHTML += `<div class="nav-list-node">
+                                        <div class="card-title card-title-style">${item1}</div>
+                                        <div class="card-MinMaxT"><i class="fa-solid fa-temperature-quarter" style="${temperature}"></i>${min}~${max}°C</div>
+                                        <div class="card-PoP"><i class="fa-solid fa-umbrella" style="${umbrella}"></i>${pop}%</div>
+                                     </div>`;
+            });
+            let navListNode = document.querySelectorAll('.nav-list-node');
+            navListNode.forEach(item => {
+                item.addEventListener('click', () => {
+                    region.innerHTML = '';
+                    region.style.gridTemplateColumns = '80%';
+                    let data = item.children[0].innerHTML;
+                    createDiv(date, startTime, endTime, index, region, data);
+                });
+            });
+        }
+
+        function color(min, num) {
+            let style = '';
+
+            switch (num) {
+                case 0:
+                    if (min > 28) {
+                        return style += 'background: linear-gradient(-10deg, rgb(205, 89, 89), rgba(213, 255, 127, 0.25), rgb(255, 255, 255));';
+                    } else if (28 >= min && min > 17) {
+                        return style += 'background: linear-gradient(-10deg, rgb(96, 209, 109), rgba(213, 255, 127, 0.25), rgb(255, 255, 255));';
+                    } else {
+                        return style += 'background: linear-gradient(-10deg, rgb(156, 235, 225), rgba(213, 255, 127, 0.25), rgb(255, 255, 255));';
+                    }
+                case 1:
+                    if (min > 28) {
+                        return style += 'color: #FF3B00';
+                    } else if (28 >= min && min > 17) {
+                        return style += 'color: green';
+                    } else {
+                        return style += 'color: #62B6CB';
+                    }
+                case 2:
+                    min = 20 + (60 * (min / 100));
+                    return style += `background: linear-gradient(to top, #0077B6 0%, #0077B6 ${min}%, rgb(225, 225, 225) ${min}%, rgb(225, 225, 225) 100%); -webkit-background-clip: text;`;
+                default: return '';
+            }
+        }
+
+    </script>
+</body>
+
+</html>
